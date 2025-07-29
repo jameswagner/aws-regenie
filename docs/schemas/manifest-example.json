@@ -1,0 +1,30 @@
+{
+  "experimentId": "gwas-demo-1",
+  "s3Path": "s3://your-data-bucket/experiments/gwas-demo-1/",
+  "inputData": {
+    "format": "bed",
+    "filePrefix": "example",
+    "phenoFile": "phenotype_bin.txt",
+    "phenoColumns": ["Y1"],
+    "covarFile": "covariates.txt",
+    "covarColumns": ["V1", "V2", "V3"],
+    "catCovarColumns": []
+  },
+  "analysisParams": {
+    "traitType": "bt",
+    "blockSize": 1000,
+    "minMAC": 5,
+    "threads": 8,
+    "cv": 5,
+    "lowmem": true,
+    "chrList": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", 
+                "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "X"]
+  },
+  "outputParams": {
+    "outPrefix": "results",
+    "outputS3Path": "s3://your-results-bucket/experiments/gwas-demo-1/results/",
+    "gz": true
+  },
+  "userId": "researcher123",
+  "studyId": "study-abcd-1234"
+} 

@@ -1,0 +1,137 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GWAS Workflow Manifest",
+  "description": "Schema for GWAS workflow manifest file that triggers the AWS Step Functions workflow",
+  "type": "object",
+  "required": ["experimentId", "s3Path", "inputData"],
+  "properties": {
+    "experimentId": {
+      "type": "string",
+      "description": "Unique identifier for this experiment"
+    },
+    "s3Path": {
+      "type": "string",
+      "description": "S3 path to the directory containing the genomic data files (s3://bucket/prefix/)",
+      "pattern": "^s3://[^/]+/.+$"
+    },
+    "inputData": {
+      "type": "object",
+      "required": ["format", "filePrefix"],
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": ["bed", "pgen", "bgen"],
+          "description": "Format of the genomic data files"
+        },
+        "filePrefix": {
+          "type": "string",
+          "description": "Prefix for the genomic data files (without file extension)"
+        },
+        "phenoFile": {
+          "type": "string",
+          "description": "Name of the phenotype file"
+        },
+        "phenoColumns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of phenotype column names to analyze"
+        },
+        "covarFile": {
+          "type": "string",
+          "description": "Name of the covariates file"
+        },
+        "covarColumns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of covariate column names to use"
+        },
+        "catCovarColumns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of categorical covariate column names"
+        }
+      }
+    },
+    "analysisParams": {
+      "type": "object",
+      "properties": {
+        "traitType": {
+          "type": "string",
+          "enum": ["qt", "bt"],
+          "default": "qt",
+          "description": "Type of trait: quantitative (qt) or binary (bt)"
+        },
+        "blockSize": {
+          "type": "integer",
+          "default": 1000,
+          "description": "Block size for regenie analysis"
+        },
+        "minMAC": {
+          "type": "integer",
+          "default": 5,
+          "description": "Minimum minor allele count"
+        },
+        "threads": {
+          "type": "integer",
+          "default": 8,
+          "description": "Number of threads to use"
+        },
+        "cv": {
+          "type": "integer",
+          "default": 5,
+          "description": "Number of cross-validation folds"
+        },
+        "lowmem": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use low memory mode"
+        },
+        "chr": {
+          "type": "string",
+          "description": "Single chromosome to analyze (mutually exclusive with chrList)"
+        },
+        "chrList": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of chromosomes to analyze (mutually exclusive with chr)"
+        }
+      }
+    },
+    "outputParams": {
+      "type": "object",
+      "properties": {
+        "outPrefix": {
+          "type": "string",
+          "default": "results",
+          "description": "Prefix for output files"
+        },
+        "outputS3Path": {
+          "type": "string",
+          "description": "S3 path where results should be stored (s3://bucket/prefix/)",
+          "pattern": "^s3://[^/]+/.+$"
+        },
+        "gz": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to gzip output files"
+        }
+      }
+    },
+    "userId": {
+      "type": "string",
+      "description": "User ID for tracking purposes"
+    },
+    "studyId": {
+      "type": "string",
+      "description": "Study ID for linking to a broader study"
+    }
+  }
+} 

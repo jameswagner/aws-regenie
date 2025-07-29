@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aws-gwas"
+version = "0.1.0"
+description = "AWS GWAS Workflow"
+requires-python = ">=3.8"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_paths = ["src"]
+pythonpath = [".", "src"] 
