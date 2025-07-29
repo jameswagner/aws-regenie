@@ -1,8 +1,6 @@
 # AWS GWAS Workflow Automation
 
-This project implements an automated genomics workflow system for GWAS (Genome-Wide Association Studies) using AWS services and the CDK (Cloud Development Kit) in TypeScript. The architecture is based on the [AWS Architecture Blog post on automated genomics workflows](https://aws.amazon.com/blogs/architecture/automated-launch-of-genomics-workflows/).
-
-![AWS GWAS Workflow Architecture](images/Regenie_project.drawio.png)
+This project implements an automated genomics workflow system for GWAS (Genome-Wide Association Studies) using AWS services and the CDK (Cloud Development Kit) in TypeScript and Python Lambda functions. The architecture is based on the [AWS Architecture Blog post on automated genomics workflows](https://aws.amazon.com/blogs/architecture/automated-launch-of-genomics-workflows/).
 
 ## Architecture Overview
 
@@ -21,114 +19,7 @@ The solution orchestrates genomics workflows using the [regenie](https://github.
 
 ## Data Flow Architecture
 
-```mermaid
-graph TB
-    %% External Input
-    subgraph "External Input"
-        A[Genomic Data Files<br/>.bed/.bim/.fam<br/>.pgen/.pvar/.psam<br/>.bgen/.sample] --> B[Manifest File<br/>manifest.json]
-        B --> C[S3 Upload]
-    end
-
-    %% Trigger System
-    subgraph "Manifest Trigger System"
-        C --> D[S3 Event Notification]
-        D --> E[SNS Topic]
-        E --> F[SQS Queue]
-        F --> G[Manifest Trigger Lambda]
-        G --> H{Manifest Validation}
-        H -->|Valid| I[Start Step Functions]
-        H -->|Invalid| J[Error Logging]
-    end
-
-    %% Step Functions Workflow
-    subgraph "Step Functions State Machine"
-        I --> K[Workflow Init Lambda]
-        K --> L[Job Calculator Lambda]
-        L --> M{Start Step?}
-        
-        M -->|Step 1| N[Step 1: Model Building]
-        M -->|Step 2| O[Step 2: Association Testing]
-        
-        N --> P[Command Parser Lambda]
-        P --> Q[AWS Batch Job<br/>Single Job]
-        Q --> R[Prediction File<br/>step1_out_pred.list]
-        R --> O
-        
-        O --> S[Command Parser Lambda]
-        S --> T[AWS Batch Jobs<br/>Parallel by Chromosome]
-        
-        T --> U{All Jobs Complete?}
-        U -->|Yes| V[Success Handler Lambda]
-        U -->|No| W[Error Handler Lambda]
-    end
-
-    %% Data Storage
-    subgraph "Data Storage"
-        subgraph "S3 Storage"
-            X[Input Data Bucket]
-            Y[Results Bucket]
-        end
-        
-        subgraph "FSx for Lustre"
-            Z[High-Performance<br/>File System]
-        end
-        
-        subgraph "DynamoDB"
-            AA[Workflow Table]
-            BB[Job Status Table]
-        end
-    end
-
-    %% Batch Processing
-    subgraph "AWS Batch Processing"
-        subgraph "Step 1 Jobs"
-            CC[Single Model Building Job<br/>Processes all chromosomes]
-        end
-        
-        subgraph "Step 2 Jobs"
-            DD[Chromosome 1 Job]
-            EE[Chromosome 2 Job]
-            FF[Chromosome N Job]
-        end
-    end
-
-    %% Monitoring
-    subgraph "Monitoring & Notifications"
-        GG[CloudWatch Alarms]
-        HH[SNS Notifications]
-        II[CloudWatch Dashboard]
-    end
-
-    %% Connections
-    K -.-> AA
-    L -.-> AA
-    Q -.-> Z
-    T -.-> Z
-    V -.-> AA
-    V -.-> BB
-    W -.-> AA
-    W -.-> BB
-    
-    X -.-> Z
-    Z -.-> Y
-    
-    Q -.-> GG
-    T -.-> GG
-    GG -.-> HH
-    
-    %% Styling
-    classDef lambda fill:#ff9999,stroke:#333,stroke-width:2px
-    classDef batch fill:#99ccff,stroke:#333,stroke-width:2px
-    classDef storage fill:#99ff99,stroke:#333,stroke-width:2px
-    classDef monitoring fill:#ffcc99,stroke:#333,stroke-width:2px
-    classDef external fill:#cccccc,stroke:#333,stroke-width:2px
-    
-    class G,K,L,P,S,V,W lambda
-    class Q,T,CC,DD,EE,FF batch
-    class X,Y,Z,AA,BB storage
-    class GG,HH,II monitoring
-    class A,B,C external
-```
+![AWS GWAS Workflow Architecture](images/Regenie_project.drawio.png)
 
 ### Key Data Flow Steps:
 
@@ -156,7 +47,6 @@ The workflow implements a GWAS analysis pipeline using the REGENIE software, whi
 
 ### Direct FSx for Lustre and S3 Integration
 - The workflow uses a persistent FSx for Lustre filesystem for high-performance access
-- Instead of creating data repository associations dynamically, the FSx filesystem is directly integrated with S3
 - The StorageStack configures the FSx for Lustre file system with auto-import settings for the S3 data bucket
 - This approach simplifies the architecture and eliminates potential circular dependencies
 
@@ -282,30 +172,12 @@ The infrastructure is organized into eight well-defined stacks that deploy toget
    - SNS topic for alarm notifications with optional email subscriptions
    - Custom metrics and monitoring for all workflow components
 
-### IAM Permissions
-
-The solution follows least-privilege principles with dedicated IAM roles:
-
-- Each Lambda function has its own IAM role with specific permissions for its tasks
-- Permissions are scoped to specific resources and actions
-- The manifest processor Lambda has permissions to read from S3 and start Step Functions executions
-
-### Workflow Execution Logs
-
-Regenie commands and execution details can be found in:
-
-- **Lambda Logs**: Available in CloudWatch for each Lambda function
-- **Step Functions Execution History**: Shows the workflow progression and state transitions 
-- **AWS Batch Job Logs**: Contains detailed regenie command outputs and errors
-
 ### Database Schema
 
 The system uses two core DynamoDB tables to track genomics workflows:
 
 1. **WorkflowTable**: Records workflow executions with runtime parameters and execution status
 2. **JobStatusTable**: Tracks individual batch job statuses within workflows
-
-**Future Enhancements:** Additional tables planned for the system include StudyMetadataTable, DatasetTable, SamplesTable, ExecutionErrorsTable, and MetricsTable to enable multi-study organization, sample tracking, and performance metrics collection.
 
 ### Cleanup Workflow
 
@@ -330,8 +202,6 @@ The following Lambda functions are used in the workflow:
 5. **Success Handler** (`success_handler`): Processes successful workflow completion, updates final workflow status to COMPLETED in DynamoDB, and stores completion metadata.
 
 6. **Error Handler** (`error_handler`): Handles workflow failures, updates job and workflow statuses in DynamoDB, and determines final workflow state based on failure patterns.
-
-
 
 ## Getting Started
 
@@ -373,11 +243,6 @@ cdk bootstrap
 cdk deploy --all
 ```
 
-To receive email notifications for workflow alarms, you can optionally provide an email address:
-```
-cdk deploy --all --context notificationEmail=your-email@example.com
-```
-
 This will deploy all 8 stacks in the correct dependency order:
 - GwasNetworkStack (VPC and networking)
 - GwasStorageStack (S3 and FSx)
@@ -392,51 +257,6 @@ This will deploy all 8 stacks in the correct dependency order:
 
 The GWAS workflow can be configured using CDK context parameters to optimize for your dataset size and budget:
 
-### Batch Job Resources
-
-Configure the vCPU and memory allocated to each genomics job:
-
-```bash
-# Small datasets (1K-10K samples) - Default settings
-cdk deploy --all
-
-# Medium datasets (10K-100K samples) - More resources  
-cdk deploy --all \
-  --context jobVcpus=8 \
-  --context jobMemoryMiB=32768
-
-# Large datasets (100K+ samples) - High-memory instances
-cdk deploy --all \
-  --context jobVcpus=16 \
-  --context jobMemoryMiB=65536
-```
-
-### Email Notifications
-
-Optionally receive email alerts for workflow failures:
-
-```bash
-cdk deploy --all --context notificationEmail=your-email@example.com
-```
-
-### Complete Configuration Example
-
-```bash
-cdk deploy --all \
-  --context jobVcpus=8 \
-  --context jobMemoryMiB=32768 \
-  --context notificationEmail=genomics-team@example.com
-```
-
-### Resource Configuration Guidelines
-
-| Dataset Size | Samples | Recommended vCPUs | Recommended Memory | Cost Impact |
-|--------------|---------|-------------------|-------------------|-------------|
-| Small        | 1K-10K  | 4 (default)       | 16 GB (default)   | Low         |
-| Medium       | 10K-100K| 8                 | 32 GB             | 2x cost     |
-| Large        | 100K+   | 16                | 64 GB             | 4x cost     |
-
-**Note:** These settings apply to each chromosome job. With 24 human chromosomes running in parallel, total resource usage scales accordingly.
 
 ## Unique S3 Paths for Concurrent Workflows
 
@@ -446,121 +266,6 @@ The system generates unique S3 paths for each workflow run to prevent conflicts 
 - This ensures multiple parallel workflows don't interfere with each other
 - Results are stored in separate, uniquely named paths
 
-## Project Structure
-
-```
-aws-gwas/
-├── cdk/                    # CDK infrastructure code
-│   ├── bin/
-│   │   └── cdk.ts          # CDK app entry point
-│   ├── lib/                # CDK stack definitions
-│   │   ├── constructs/     # Reusable CDK constructs
-│   │   │   ├── dynamodb-table-factory.ts  # Factory for DynamoDB tables
-│   │   │   ├── lambda-factory.ts  # Factory for Lambda functions
-│   │   │   ├── lambda-roles.ts  # Role definitions for Lambda functions
-│   │   │   └── regenie-job-definition.ts  # Batch job definition
-│   │   └── stacks/         # Main infrastructure stacks
-│   │       ├── network-stack.ts     # VPC and networking infrastructure
-│   │       ├── storage-stack.ts     # S3, FSx and SNS notification topic
-│   │       ├── database-stack.ts    # DynamoDB tables for workflow tracking
-│   │       ├── compute-stack.ts     # Batch compute environment and ECR
-│   │       ├── lambda-stack.ts      # Lambda functions for workflow processing
-│   │       ├── workflow-stack.ts    # Step Functions workflow definition
-│   │       ├── queue-processing-stack.ts  # SQS, Lambda for manifest processing
-│   │       └── monitoring-stack.ts  # CloudWatch alarms and dashboards
-│   ├── cdk.json            # CDK configuration
-│   └── package.json        # Node.js dependencies
-├── src/                    # Application code
-│   └── lambdas/            # Lambda function code
-│       ├── workflow_init/  # Workflow initialization
-│       ├── job_calculator/ # Batch job calculation
-│       ├── error_handler/  # Error handling
-│       ├── command_parser/ # Command string parsing
-│       └── manifest_trigger/ # Process manifest files and trigger workflows
-├── tests/                  # Test suite
-│   ├── lambdas/            # Lambda function tests
-│   └── conftest.py         # Pytest configuration
-├── docs/                   # Documentation
-│   └── schemas/            # JSON schemas for manifest validation
-├── regenie-example/        # Example genomic data files
-├── scripts/                # Utility scripts
-│   └── upload_and_run.py   # Script to upload data and trigger workflows
-├── requirements.txt        # Python dependencies
-├── pyproject.toml          # Python project configuration
-├── pytest.ini             # Pytest configuration
-└── README.md               # This file
-```
-
-## Recent Improvements
-
-### Streamlined Database Structure
-
-The database architecture uses two core tables optimized for the workflow tracking requirements:
-
-1. **WorkflowTable**: Records workflow executions with runtime parameters and status
-2. **JobStatusTable**: Tracks individual batch job statuses within workflows
-
-This focused approach reduces complexity while maintaining all essential workflow tracking functionality. Both tables include Global Secondary Indexes for efficient querying by status, user, study, and creation time.
-
-### Code Refactoring and Abstractions
-
-#### DynamoDB Table Factory
-
-A new `DynamoDBTableFactory` class has been implemented to standardize DynamoDB table creation:
-
-- Provides consistent table settings (billing mode, removal policy, etc.)
-- Simplifies Global Secondary Index (GSI) creation
-- Standardizes output generation
-- Enables declarative table and index definitions using configuration objects
-
-```typescript
-// Example of simplified table creation
-const workflowTable = tableFactory.createTable('GwasWorkflowTable', {
-  partitionKey: { name: 'workflowId', type: dynamodb.AttributeType.STRING },
-  sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING }
-});
-
-// Define GSIs with a declarative approach
-const workflowGSIs: GSIConfig[] = [
-  {
-    indexName: 'status-index',
-    partitionKey: { name: 'status', type: dynamodb.AttributeType.STRING },
-    sortKey: { name: 'updatedAt', type: dynamodb.AttributeType.STRING }
-  },
-  // Additional indexes...
-];
-
-// Add all GSIs to the table
-workflowGSIs.forEach(gsi => tableFactory.addGSI(workflowTable, gsi));
-```
-
-#### Lambda Role Improvements
-
-The `LambdaRoles` class has been refactored to reduce duplication and improve maintainability:
-
-- Created helper methods for common IAM permissions (S3, DynamoDB, Batch, FSx)
-- Standardized role creation with base role patterns
-- Simplified policy statement creation
-- Reduced code duplication across different role types
-
-#### Lambda Function Factory
-
-The `LambdaFactory` provides standardized Lambda function creation:
-
-- Ensures consistent configuration across all functions
-- Centralizes best practices for Lambda deployment
-- Simplifies function outputs for cross-stack references
-
-### Architecture Improvements
-
-- **Modular Stack Design**: Infrastructure organized into 8 focused stacks with clear separation of concerns
-- **Reduced Cross-Stack Dependencies**: Explicit dependency management between stacks
-- **Direct Parameter Passing**: Stack-to-stack parameter passing instead of CloudFormation exports for better maintainability
-- **Improved Construct Organization**: Reusable constructs and factories for consistent resource creation
-- **Enhanced Monitoring**: Dedicated monitoring stack with comprehensive alarms and dashboards
-- **Network Isolation**: Dedicated network stack with proper security group configurations
-
-These improvements make the codebase more maintainable, provide better observability, and enable easier debugging and troubleshooting of workflow issues.
 
 ## Using the Manifest-Based Trigger System
 
@@ -676,170 +381,11 @@ Scientists can initiate genomics workflows through:
 - The cleanup workflow automatically detects and handles pending failures
 - Study status is updated automatically based on workflow execution results
 
-## Data Model
-
-### Workflow Table
-- **workflowId** (partition key): Unique identifier for a workflow execution
-- **createdAt** (sort key): Timestamp when the workflow was created
-- **status**: Current status of the workflow (INITIALIZED, CALCULATING_JOBS, IN_PROGRESS, COMPLETED, etc.)
-- **fsxPath**: Path in FSx filesystem for the workflow's data
-- **parameters**: Analysis parameters for regenie
-- **datasetId**: Associated dataset identifier
-- **jobCount**: Total number of jobs in the workflow
-- **jobStats**: Statistics about job completion status
-
-### Job Status Table
-- **workflowId** (partition key): Workflow execution identifier
-- **jobId** (sort key): Batch job identifier
-- **status**: Current status of the job (PENDING, RUNNING, COMPLETED, FAILED)
-- **stepNumber**: The regenie step number (1 or 2)
-- **command**: The command executed by the job
-- **createdAt**: Timestamp when the job was created
-- **updatedAt**: Timestamp when the job was last updated
-- **chromosomeNumber**: For step 2 jobs, the chromosome being processed
-- **errorDetail**: For failed jobs, details about the error
-
-
-
-## Future Enhancements
-
-The following tables are planned for future implementation:
-
-### Study Metadata Table (TODO)
-- Will store study information including principal investigators and cohort details
-- Will enable organizing multiple workflows under research studies
-
-### Dataset Table (TODO)
-- Will track genomic datasets with metadata
-- Will manage associations between studies and their datasets
-
-### Samples Table (TODO)
-- Will store individual sample information and phenotypes
-- Will enable cohort management and participant tracking
-
-### Execution Errors Table (TODO)
-- Will provide detailed error tracking and resolution status
-- Will support better failure analysis and debugging
-
-### Metrics Table (TODO)
-- Will collect performance metrics for workflows and jobs
-- Will enable optimization of compute resources and cost analysis
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Acknowledgments
 
 - AWS Genomics team for architecture guidance
 - REGENIE project for the genomic analysis software
-
-# GWAS Workflow Automation
-
-This script automates the process of:
-1. Uploading the regenie Docker image to Amazon ECR
-2. Uploading example genomic files to Amazon S3
-3. Triggering a GWAS analysis using AWS Step Functions
-
-## Prerequisites
-
-- Python 3.6+
-- AWS CLI configured with appropriate permissions
-- Docker installed locally
-- boto3 Python package (`pip install boto3`)
-
-## Installation
-
-```bash
-# Clone the repository (if applicable)
-git clone <repository-url>
-cd <repository-directory>
-
-# Install dependencies
-pip install boto3
-```
-
-## Usage
-
-The script can automatically detect your AWS resources by looking up the CloudFormation stacks:
-
-```bash
-python upload_and_run.py
-```
-
-If you want to specify the resources manually, you can still do so:
-
-```bash
-python upload_and_run.py --bucket YOUR_S3_BUCKET_NAME --state-machine-arn YOUR_STATE_MACHINE_ARN
-```
-
-### Optional Arguments
-
-- `--stack-prefix`: Prefix for CDK stack names (default: "Gwas")
-- `--image-tag`: Regenie image tag to use (default: 'v3.0.1.gz')
-- `--ecr-repo`: ECR repository name (if not specified, will be retrieved from CloudFormation)
-- `--bucket`: S3 bucket name (if not specified, will be retrieved from CloudFormation)
-- `--state-machine-arn`: ARN of the state machine (if not specified, will be retrieved from CloudFormation)
-- `--dataset-prefix`: Prefix for S3 dataset (default: 'example-data')
-- `--example-dir`: Directory with example files (default: './regenie-example')
-
-## Examples
-
-### With automatic resource detection:
-
-```bash
-python upload_and_run.py
-```
-
-### With custom stack prefix:
-
-```bash
-python upload_and_run.py --stack-prefix MyCustomPrefix
-```
-
-### With manual resource specification:
-
-```bash
-python upload_and_run.py \
-  --bucket genomics-data-bucket \
-  --state-machine-arn arn:aws:states:us-east-1:123456789012:stateMachine:GwasWorkflow \
-  --image-tag v3.0.1.gz
-```
-
-## How it Works
-
-1. The script automatically discovers AWS resources by querying CloudFormation stacks
-2. It checks if the specified regenie Docker image exists in ECR
-3. If not, it pulls the image from GitHub Container Registry and pushes it to ECR
-4. Example genomic files are uploaded to the specified S3 bucket
-5. The workflow is triggered using the Step Functions state machine
-
-## Output
-
-The script prints the execution ARN and a link to monitor the workflow in the AWS console.
-
-## Testing
-
-Run tests using pytest:
-
-```bash
-# Run all tests
-python -m pytest
-
-# Run specific test file
-python -m pytest tests/lambdas/test_job_calculator.py
-
-# Run with coverage
-python -m pytest --cov=src tests/
-```
 
 ## TODOs
 
@@ -859,5 +405,3 @@ python -m pytest --cov=src tests/
 - [ ] **Split Lambda 3**: Separate chromosome detection from job orchestration
 - [ ] **Add retry logic**: Exponential backoff for S3 downloads and DynamoDB writes
 - [ ] **FSx validation**: Verify FSx mount paths exist before job creation
-
-*Goal: Quick production readiness improvements while documenting the larger architectural work needed for enterprise-scale genomics datasets.*
