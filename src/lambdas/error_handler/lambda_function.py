@@ -1,22 +1,19 @@
 import json
+import boto3
 import logging
-from typing import Dict, List, Any, Optional
-
-# Import shared utilities
-from lambdas.shared.dynamodb_utils import (
-    get_workflow_table, 
-    update_workflow_status, 
-    update_job_status,
-    get_workflow_jobs,
-    calculate_job_stats,
-    determine_workflow_status
+from typing import Dict, Any, List, Optional
+from shared.dynamodb_utils import (
+    get_workflow_table, get_job_status_table, update_job_status, 
+    get_workflow_jobs, calculate_job_stats, update_workflow_status
 )
-from lambdas.shared.constants import (
-    WorkflowStatus, JobStatus, JobConstants, ErrorHandlerConstants, ErrorMessages
+from shared.constants import (
+    WorkflowStatus, JobStatus, DynamoDBConstants, 
+    ErrorHandlerConstants, ErrorMessages, EnvironmentVariables
 )
+from shared.logging_utils import setup_lambda_logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Lambda-compatible logging setup
+logger = setup_lambda_logging()
 
 
 class ErrorEventValidator:
@@ -36,7 +33,7 @@ class ErrorEventValidator:
         Raises:
             ValueError: If required parameters are missing
         """
-        workflow_id = event.get(JobConstants.WORKFLOW_ID_KEY)
+        workflow_id = event.get(DynamoDBConstants.WORKFLOW_ID_KEY)
         failed_jobs = event.get('failedJobs', [])
         
         if not workflow_id:
@@ -71,7 +68,7 @@ class WorkflowValidator:
         """
         try:
             workflow = self.workflow_table.get_item(
-                Key={JobConstants.WORKFLOW_ID_KEY: workflow_id}
+                Key={DynamoDBConstants.WORKFLOW_ID_KEY: workflow_id}
             ).get('Item')
             
             if not workflow:
@@ -102,7 +99,7 @@ class FailedJobProcessor:
         processed_count = 0
         
         for job in failed_jobs:
-            job_id = job.get(JobConstants.JOB_ID_KEY)
+            job_id = job.get(DynamoDBConstants.JOB_ID_KEY)
             error_message = job.get('errorMessage', ErrorHandlerConstants.UNKNOWN_ERROR)
             
             if not job_id:
@@ -199,7 +196,7 @@ class ErrorHandlerService:
         status_info = self.status_updater.update_workflow_after_failures(workflow_id)
         
         return {
-            JobConstants.WORKFLOW_ID_KEY: workflow_id,
+            DynamoDBConstants.WORKFLOW_ID_KEY: workflow_id,
             'status': status_info['workflow_status'],
             'processedErrors': processed_count,
             'jobStats': status_info['job_stats']

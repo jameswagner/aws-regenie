@@ -2,14 +2,12 @@ import json
 import logging
 from typing import Dict, Any, List, Optional
 
-# Import shared constants
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from lambdas.shared.constants import CommandConstants, ErrorMessages
+# Import shared utilities
+from shared.constants import CommandConstants, ErrorMessages
+from shared.logging_utils import setup_lambda_logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Lambda-compatible logging setup
+logger = setup_lambda_logging()
 
 
 class ParameterExtractor:

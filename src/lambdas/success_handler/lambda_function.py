@@ -1,15 +1,18 @@
 import json
+import boto3
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 
 # Import shared utilities
-from lambdas.shared.dynamodb_utils import update_workflow_status, get_workflow_jobs, calculate_job_stats
-from lambdas.shared.constants import (
-    WorkflowStatus, JobConstants, WorkflowInitConstants, ErrorHandlerConstants, ErrorMessages
+from shared.dynamodb_utils import update_workflow_status, get_workflow_jobs, calculate_job_stats
+from shared.constants import (
+    WorkflowStatus, JobStatus, DynamoDBConstants, 
+    ErrorHandlerConstants, EnvironmentVariables, JobConstants, WorkflowInitConstants, ErrorMessages
 )
+from shared.logging_utils import setup_lambda_logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Lambda-compatible logging setup
+logger = setup_lambda_logging()
 
 
 class SuccessEventValidator:

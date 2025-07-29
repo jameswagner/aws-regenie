@@ -10,8 +10,8 @@ from jsonschema import validate
 import logging
 
 # Import shared utilities
-from lambdas.shared.s3_utils import ensure_trailing_slash, parse_s3_uri, check_file_exists
-from lambdas.shared.constants import (
+from shared.s3_utils import ensure_trailing_slash, parse_s3_uri, check_file_exists
+from shared.constants import (
     GenomicFormats, ManifestConstants, 
     FormatFileMapping, ErrorMessages
 )

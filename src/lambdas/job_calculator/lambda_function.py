@@ -5,22 +5,21 @@ import logging
 from typing import Dict, List, Any, Optional
 
 # Import shared utilities
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from lambdas.shared.s3_utils import ensure_trailing_slash
-from lambdas.shared.dynamodb_utils import (
+from shared.s3_utils import ensure_trailing_slash
+from shared.dynamodb_utils import (
     get_workflow_table, get_job_status_table, get_current_timestamp, update_workflow_status
 )
-from lambdas.shared.constants import (
+from shared.constants import (
     WorkflowStatus, JobStatus, JobConstants, GenomicFormats, FormatFileMapping, ErrorMessages
 )
+from shared.logging_utils import setup_lambda_logging
 
 # Initialize AWS clients
 import boto3
 s3 = boto3.client('s3')
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Lambda-compatible logging setup
+logger = setup_lambda_logging()
 
 
 class ChromosomeDetector:

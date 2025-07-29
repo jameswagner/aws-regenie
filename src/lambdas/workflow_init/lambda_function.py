@@ -8,20 +8,19 @@ import logging
 from typing import Dict, Any, Tuple, Optional
 
 # Import shared utilities
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from lambdas.shared.s3_utils import ensure_trailing_slash
-from lambdas.shared.dynamodb_utils import get_workflow_table, get_current_timestamp
-from lambdas.shared.constants import (
+from shared.s3_utils import ensure_trailing_slash
+from shared.dynamodb_utils import get_workflow_table, get_current_timestamp
+from shared.constants import (
     WorkflowStatus, JobConstants, ManifestConstants, WorkflowInitConstants, 
     ErrorMessages, GenomicFormats, EnvironmentVariables
 )
+from shared.logging_utils import setup_lambda_logging
 
 # Initialize AWS clients
 s3 = boto3.client('s3')
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Lambda-compatible logging setup
+logger = setup_lambda_logging()
 
 
 class WorkflowInitializer:
