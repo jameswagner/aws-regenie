@@ -1,10 +1,10 @@
 # AWS GWAS Workflow Automation
 
-This project implements an automated genomics workflow system for GWAS (Genome-Wide Association Studies) using AWS services and the CDK (Cloud Development Kit) in TypeScript.
+This project implements an automated genomics workflow system for GWAS (Genome-Wide Association Studies) using AWS services and the CDK (Cloud Development Kit) in TypeScript. The architecture is based on the [AWS Architecture Blog post on automated genomics workflows](https://aws.amazon.com/blogs/architecture/automated-launch-of-genomics-workflows/).
 
 ## Architecture Overview
 
-The solution orchestrates genomics workflows (specifically regenie) using:
+The solution orchestrates genomics workflows using the [regenie](https://github.com/rgcgithub/regenie) software (Mbatchou, J., Barnard, L., Backman, J. et al. Computationally efficient whole-genome regression for quantitative and binary traits. Nat Genet 53, 1097–1103 (2021). https://doi.org/10.1038/s41588-021-00870-7) with the following AWS services:
 
 - **AWS Step Functions** for workflow orchestration with error handling
 - **AWS Lambda** for serverless compute and workflow initialization
