@@ -21,6 +21,164 @@ The solution orchestrates genomics workflows using the [regenie](https://github.
 
 ![AWS GWAS Workflow Architecture](images/Regenie_project.drawio.png)
 
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 14.x or later
+- AWS CDK CLI
+- AWS CLI configured with appropriate permissions
+- Docker (for local testing)
+
+### Installation
+
+1. Clone this repository
+```
+git clone https://github.com/your-org/aws-gwas.git
+cd aws-gwas
+```
+
+2. Install dependencies
+```
+npm install
+```
+
+3. Install CDK dependencies
+```
+cd cdk
+npm install
+cd ..
+```
+
+4. Bootstrap CDK (if not already done)
+```
+cd cdk
+cdk bootstrap
+```
+
+5. Deploy all infrastructure stacks
+```
+cdk deploy --all
+```
+
+This will deploy all 8 stacks in the correct dependency order:
+- GwasNetworkStack (VPC and networking)
+- GwasStorageStack (S3 and FSx)
+- GwasDatabaseStack (DynamoDB tables)
+- GwasComputeStack (Batch and ECR)
+- GwasLambdaStack (Lambda functions)
+- GwasWorkflowStack (Step Functions)
+- GwasQueueProcessingStack (SQS and manifest processing)
+- GwasMonitoringStack (CloudWatch alarms and dashboard)
+
+
+## Using the Manifest-Based Trigger System
+
+### How to Use
+
+#### 1. Upload Data Files
+
+First, upload your genomic data files to an S3 path:
+
+- For PLINK BED format: Upload `.bed`, `.bim`, and `.fam` files
+- For PLINK2 PGEN format: Upload `.pgen`, `.pvar`, and `.psam` files
+- For BGEN format: Upload `.bgen` and `.sample` files
+
+Also upload any phenotype files and covariate files as needed.
+
+Example:
+```
+s3://your-data-bucket/experiments/experiment-123/
+  ├── example.bed
+  ├── example.bim
+  ├── example.fam
+  ├── phenotype_bin.txt
+  └── covariates.txt
+```
+
+#### 2. Create a Manifest File
+
+Create a JSON manifest file with the required information:
+
+At minimum, the manifest must include:
+- `experimentId` - A unique identifier for your experiment
+- `s3Path` - The S3 path where your genomic data files are stored
+- `inputData` - Information about your input files
+
+Example minimal manifest:
+```json
+{
+  "experimentId": "experiment-123",
+  "s3Path": "s3://your-data-bucket/experiments/experiment-123/",
+  "inputData": {
+    "format": "bed",
+    "filePrefix": "example"
+  }
+}
+```
+
+#### 3. Upload the Manifest File
+
+Upload your manifest file to the same S3 location as your data files. The file should be named:
+- `manifest.json` or 
+- `anything.manifest.json` 
+
+For example:
+```
+s3://your-data-bucket/experiments/experiment-123/manifest.json
+```
+
+#### 4. Automatic Workflow Triggering
+
+When the manifest file is uploaded, the system will:
+
+1. Detect the manifest upload via S3 event notifications
+2. Validate the manifest contents
+3. Check that all required data files exist
+4. Start the Step Functions workflow
+
+You'll receive notifications about the workflow status via SNS (if subscribed).
+
+## Usage for Scientists
+
+Scientists can initiate genomics workflows through:
+
+1. Uploading a manifest file to S3 to automatically trigger the workflow
+2. Direct interaction with Step Functions API via AWS Console
+3. AWS CLI by running `start-execution` and passing a JSON input file
+4. The provided `upload_and_run.py` script for quick testing with example data
+
+### Example input parameters:
+
+```json
+{
+  "studyId": "study-123456",
+  "datasetId": "dataset-abcdef",
+  "sampleSize": 1000,
+  "batchSize": 100,
+  "regenieVersion": "latest",
+  "startStep": "1",
+  "datasetPath": "s3://genomics-data/dataset1",
+  "phenotype": "diabetes",
+  "samples": [
+    {
+      "sampleId": "sample-001",
+      "diabetes": "0",
+      "gender": "F",
+      "age": "45"
+    },
+    {
+      "sampleId": "sample-002",
+      "diabetes": "1",
+      "gender": "M",
+      "age": "52"
+    }
+  ],
+  "sampleManifest": "s3://genomics-data/manifests/study-123456-samples.csv"
+}
+```
+
 ### Key Data Flow Steps:
 
 1. **Data Upload & Trigger**: Genomic data files and manifest are uploaded to S3, triggering the workflow
@@ -202,176 +360,6 @@ The following Lambda functions are used in the workflow:
 5. **Success Handler** (`success_handler`): Processes successful workflow completion, updates final workflow status to COMPLETED in DynamoDB, and stores completion metadata.
 
 6. **Error Handler** (`error_handler`): Handles workflow failures, updates job and workflow statuses in DynamoDB, and determines final workflow state based on failure patterns.
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 14.x or later
-- AWS CDK CLI
-- AWS CLI configured with appropriate permissions
-- Docker (for local testing)
-
-### Installation
-
-1. Clone this repository
-```
-git clone https://github.com/your-org/aws-gwas.git
-cd aws-gwas
-```
-
-2. Install dependencies
-```
-npm install
-```
-
-3. Install CDK dependencies
-```
-cd cdk
-npm install
-cd ..
-```
-
-4. Bootstrap CDK (if not already done)
-```
-cd cdk
-cdk bootstrap
-```
-
-5. Deploy all infrastructure stacks
-```
-cdk deploy --all
-```
-
-This will deploy all 8 stacks in the correct dependency order:
-- GwasNetworkStack (VPC and networking)
-- GwasStorageStack (S3 and FSx)
-- GwasDatabaseStack (DynamoDB tables)
-- GwasComputeStack (Batch and ECR)
-- GwasLambdaStack (Lambda functions)
-- GwasWorkflowStack (Step Functions)
-- GwasQueueProcessingStack (SQS and manifest processing)
-- GwasMonitoringStack (CloudWatch alarms and dashboard)
-
-## Configuration Options
-
-The GWAS workflow can be configured using CDK context parameters to optimize for your dataset size and budget:
-
-
-## Unique S3 Paths for Concurrent Workflows
-
-The system generates unique S3 paths for each workflow run to prevent conflicts when multiple workflows run simultaneously:
-
-- Each run of `upload_and_run.py` creates a uniquely timestamped S3 directory for data
-- This ensures multiple parallel workflows don't interfere with each other
-- Results are stored in separate, uniquely named paths
-
-
-## Using the Manifest-Based Trigger System
-
-### How to Use
-
-#### 1. Upload Data Files
-
-First, upload your genomic data files to an S3 path:
-
-- For PLINK BED format: Upload `.bed`, `.bim`, and `.fam` files
-- For PLINK2 PGEN format: Upload `.pgen`, `.pvar`, and `.psam` files
-- For BGEN format: Upload `.bgen` and `.sample` files
-
-Also upload any phenotype files and covariate files as needed.
-
-Example:
-```
-s3://your-data-bucket/experiments/experiment-123/
-  ├── example.bed
-  ├── example.bim
-  ├── example.fam
-  ├── phenotype_bin.txt
-  └── covariates.txt
-```
-
-#### 2. Create a Manifest File
-
-Create a JSON manifest file with the required information:
-
-At minimum, the manifest must include:
-- `experimentId` - A unique identifier for your experiment
-- `s3Path` - The S3 path where your genomic data files are stored
-- `inputData` - Information about your input files
-
-Example minimal manifest:
-```json
-{
-  "experimentId": "experiment-123",
-  "s3Path": "s3://your-data-bucket/experiments/experiment-123/",
-  "inputData": {
-    "format": "bed",
-    "filePrefix": "example"
-  }
-}
-```
-
-#### 3. Upload the Manifest File
-
-Upload your manifest file to the same S3 location as your data files. The file should be named:
-- `manifest.json` or 
-- `anything.manifest.json` 
-
-For example:
-```
-s3://your-data-bucket/experiments/experiment-123/manifest.json
-```
-
-#### 4. Automatic Workflow Triggering
-
-When the manifest file is uploaded, the system will:
-
-1. Detect the manifest upload via S3 event notifications
-2. Validate the manifest contents
-3. Check that all required data files exist
-4. Start the Step Functions workflow
-
-You'll receive notifications about the workflow status via SNS (if subscribed).
-
-## Usage for Scientists
-
-Scientists can initiate genomics workflows through:
-
-1. Uploading a manifest file to S3 to automatically trigger the workflow
-2. Direct interaction with Step Functions API via AWS Console
-3. AWS CLI by running `start-execution` and passing a JSON input file
-4. The provided `upload_and_run.py` script for quick testing with example data
-
-### Example input parameters:
-
-```json
-{
-  "studyId": "study-123456",
-  "datasetId": "dataset-abcdef",
-  "sampleSize": 1000,
-  "batchSize": 100,
-  "regenieVersion": "latest",
-  "startStep": "1",
-  "datasetPath": "s3://genomics-data/dataset1",
-  "phenotype": "diabetes",
-  "samples": [
-    {
-      "sampleId": "sample-001",
-      "diabetes": "0",
-      "gender": "F",
-      "age": "45"
-    },
-    {
-      "sampleId": "sample-002",
-      "diabetes": "1",
-      "gender": "M",
-      "age": "52"
-    }
-  ],
-  "sampleManifest": "s3://genomics-data/manifests/study-123456-samples.csv"
-}
-```
 
 ## Monitoring and Error Handling
 
