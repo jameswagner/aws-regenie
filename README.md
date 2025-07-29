@@ -21,6 +21,7 @@ The solution orchestrates genomics workflows using the [regenie](https://github.
 
 ![AWS GWAS Workflow Architecture](images/Regenie_project.drawio.png)
 
+![Step Functions Workflow Graph](images/stepfunctions_graph.png)
 
 ## Getting Started
 
