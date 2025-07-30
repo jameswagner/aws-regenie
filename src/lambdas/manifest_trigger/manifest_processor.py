@@ -4,7 +4,7 @@ Handles validation, file checking, and transformation of manifest files.
 """
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import jsonschema
 from jsonschema import validate
 import logging
@@ -150,7 +150,7 @@ class ManifestProcessor:
             "s3Path": s3_path,
             "analysisSubdir": analysis_subdir,
             "inputData": manifest_data['inputData'],
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
         # Add optional analysis parameters if present

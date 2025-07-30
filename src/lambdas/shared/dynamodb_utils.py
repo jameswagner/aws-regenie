@@ -3,7 +3,7 @@ DynamoDB utility functions for workflow and job status operations
 """
 import os
 import boto3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 # Import shared constants
@@ -26,7 +26,7 @@ def get_job_status_table():
 
 def get_current_timestamp() -> str:
     """Get current timestamp in ISO format"""
-    return datetime.now(datetime.UTC).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def update_workflow_status(workflow_id: str, status: str, **kwargs) -> None:

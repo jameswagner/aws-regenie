@@ -10,7 +10,7 @@ from shared.dynamodb_utils import (
     get_workflow_table, get_job_status_table, get_current_timestamp, update_workflow_status
 )
 from shared.constants import (
-    WorkflowStatus, JobStatus, JobConstants, GenomicFormats, FormatFileMapping, ErrorMessages
+    WorkflowStatus, JobStatus, JobConstants, CommandConstants, GenomicFormats, FormatFileMapping, ErrorMessages
 )
 from shared.logging_utils import setup_lambda_logging
 
@@ -181,7 +181,7 @@ class PathMapper:
         bucket_name = s3_path.replace('s3://', '').split('/')[0]
         prefix = s3_path.replace(f's3://{bucket_name}/', '')
         
-        fsx_path = f"{self.fsx_input_mount}/{self.data_prefix}/{analysis_subdir}/"
+        fsx_path = f"{self.fsx_input_mount}/{self.data_prefix}/{analysis_subdir}"
         
         # If prefix starts with data_prefix, remove it since it's already in the FSx mount
         if prefix.startswith(f"{self.data_prefix}/"):
@@ -252,7 +252,7 @@ class JobFactory:
         step1_job = {
             JobConstants.JOB_ID_KEY: JobConstants.STEP1_JOB_PATTERN.format(workflow_id=workflow_id),
             'stepNumber': JobConstants.STEP_1,
-            'command': command,  # ADD EXECUTABLE COMMAND
+            CommandConstants.COMMAND_KEY: command,  # ADD EXECUTABLE COMMAND
             JobConstants.WORKFLOW_ID_KEY: workflow_id,
             'status': JobStatus.PENDING,
             'createdAt': timestamp,
@@ -307,7 +307,7 @@ class JobFactory:
             step2_job = {
                 JobConstants.JOB_ID_KEY: JobConstants.STEP2_JOB_PATTERN.format(workflow_id=workflow_id, chrom=chrom),
                 'stepNumber': JobConstants.STEP_2,
-                'command': command,  # ADD EXECUTABLE COMMAND
+                CommandConstants.COMMAND_KEY: command,  # ADD EXECUTABLE COMMAND
                 JobConstants.WORKFLOW_ID_KEY: workflow_id,
                 'status': JobStatus.PENDING,
                 'createdAt': timestamp,

@@ -4,10 +4,21 @@ from typing import Dict, Any, List, Optional
 
 # Import shared utilities
 from shared.constants import CommandConstants, ErrorMessages
-from shared.logging_utils import setup_lambda_logging
 
 # Lambda-compatible logging setup
-logger = setup_lambda_logging()
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Clear any existing handlers (Lambda might have some)
+for handler in logger.handlers[:]:
+    logger.removeHandler(handler)
+
+# Add a stream handler that writes to stdout (which Lambda captures)
+handler = logging.StreamHandler()
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 class ParameterExtractor:
